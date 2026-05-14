@@ -1,0 +1,31 @@
+<div id="montable" hx-get="/monitoring/table" hx-trigger="every 5s" hx-swap="outerHTML">
+{% if rows.is_empty() %}
+  <p class="muted">No streams configured.</p>
+{% else %}
+<table class="mon-table">
+  <thead>
+    <tr>
+      <th>Stream</th><th>Status</th><th>Uptime</th><th>Data sent</th>
+      <th>Bitrate</th><th>FPS</th><th>Frames</th><th>Dropped</th>
+      <th>Speed</th><th>Restarts</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    <tr class="{% if r.is_live %}row-live{% endif %}">
+      <td><a href="/streams/{{ r.id }}">{{ r.name }}</a></td>
+      <td><span class="status-pill status-{{ r.status }}">{{ r.status_emoji }} {{ r.status }}</span></td>
+      <td>{{ r.uptime }}</td>
+      <td>{{ r.data_sent }}</td>
+      <td>{{ r.bitrate }}</td>
+      <td>{{ r.fps }}</td>
+      <td>{{ r.frames }}</td>
+      <td class="{% if r.dropped > 0 %}warn{% endif %}">{{ r.dropped }}</td>
+      <td>{{ r.speed }}</td>
+      <td class="{% if r.restarts > 0 %}warn{% endif %}">{{ r.restarts }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+</div>

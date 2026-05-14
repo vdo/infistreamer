@@ -1,0 +1,30 @@
+<div id="trends" hx-get="/monitoring/trends" hx-trigger="every 60s" hx-swap="outerHTML">
+{% if trends.is_empty() %}
+  <p class="muted">No streams configured.</p>
+{% else %}
+<div class="trend-grid">
+  {% for t in trends %}
+  <div class="trend-card">
+    <div class="trend-head">
+      <a href="/streams/{{ t.id }}">{{ t.name }}</a>
+      {% if t.is_live %}
+        <span class="status-pill status-live">🔴 live</span>
+      {% else %}
+        <span class="status-pill status-stopped">⚪ idle</span>
+      {% endif %}
+    </div>
+    <div class="trend-row">
+      <span class="trend-label">24&nbsp;h</span>
+      {{ t.spark_24h|safe }}
+      <span class="trend-peak">peak {{ t.peak_24h }}</span>
+    </div>
+    <div class="trend-row">
+      <span class="trend-label">1&nbsp;week</span>
+      {{ t.spark_1w|safe }}
+      <span class="trend-peak">peak {{ t.peak_1w }}</span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+</div>

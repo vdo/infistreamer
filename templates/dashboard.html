@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Streams · infistreamer{% endblock %}
+{% block nav %}
+  <span class="nav-user">👤 {{ username }}</span>
+  <a href="/monitoring">📊 Monitoring</a>
+  <form method="post" action="/logout" class="inline"><button class="btn btn-link">Log out</button></form>
+{% endblock %}
+{% block content %}
+
+{% if let Some(m) = flash %}<p class="alert alert-ok">{{ m }}</p>{% endif %}
+{% if let Some(e) = flash_error %}<p class="alert alert-error">{{ e }}</p>{% endif %}
+
+<section class="card">
+  <h2>📺 YouTube account</h2>
+  {% if let Some(acc) = youtube %}
+    <p>Connected as <strong>{{ acc.channel_title }}</strong>.</p>
+    <form method="post" action="/youtube/disconnect" class="inline">
+      <button class="btn btn-danger">Disconnect</button>
+    </form>
+  {% else if oauth_enabled %}
+    <p>Connect your channel to auto-create broadcasts and fill in stream keys.</p>
+    <a class="btn btn-primary" href="/youtube/connect">Connect YouTube account</a>
+  {% else %}
+    <p class="muted">OAuth is not configured — streams still work with a manual stream key
+      from YouTube Studio. Set <code>GOOGLE_CLIENT_ID</code>, <code>GOOGLE_CLIENT_SECRET</code>
+      and <code>OAUTH_REDIRECT_URL</code> to enable account integration.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>➕ New stream</h2>
+  <form method="post" action="/streams" class="row">
+    <input name="name" placeholder="Stream name" required>
+    <button type="submit" class="btn btn-primary">Create</button>
+  </form>
+</section>
+
+<h2 class="section-title">🎬 Streams</h2>
+{% if streams.is_empty() %}
+  <p class="muted">No streams yet — create one above.</p>
+{% else %}
+<div class="grid">
+  {% for c in streams %}
+  <a class="card stream-card" href="/streams/{{ c.stream.id }}">
+    <div class="stream-card-head">
+      <span class="status-pill status-{{ c.stream.status }}">
+        {{ c.stream.status_emoji() }} {{ c.stream.status }}
+      </span>
+      <span class="badge">{{ c.stream.quality_label() }}</span>
+    </div>
+    <h3>{{ c.stream.name }}</h3>
+    <p class="muted">🎬 {{ c.visual_count }} visual · 🎵 {{ c.audio_count }} audio
+      {% if c.stream.infinite %}· ♾️ infinite{% endif %}</p>
+    {% if let Some(err) = c.stream.last_error %}
+      <p class="alert alert-error small">{{ err }}</p>
+    {% endif %}
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% endblock %}

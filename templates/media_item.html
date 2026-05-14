@@ -1,0 +1,24 @@
+<li class="media-item">
+  <div class="media-preview">
+    {% if m.is_audio() %}
+      <audio controls preload="metadata" src="/media/{{ stream.id }}/{{ m.file_name() }}"></audio>
+    {% else %}
+      <video controls preload="metadata" src="/media/{{ stream.id }}/{{ m.file_name() }}"></video>
+    {% endif %}
+  </div>
+  <div class="media-meta">
+    <span class="media-name" title="{{ m.original_name }}">{{ m.kind_emoji() }} {{ m.original_name }}</span>
+    <span class="media-actions">
+      <form method="post" action="/streams/{{ stream.id }}/media/{{ m.id }}/move" class="inline">
+        <input type="hidden" name="dir" value="up"><button class="btn btn-tiny" title="Move up">▲</button>
+      </form>
+      <form method="post" action="/streams/{{ stream.id }}/media/{{ m.id }}/move" class="inline">
+        <input type="hidden" name="dir" value="down"><button class="btn btn-tiny" title="Move down">▼</button>
+      </form>
+      <form method="post" action="/streams/{{ stream.id }}/media/{{ m.id }}/delete" class="inline"
+            onsubmit="return confirm('Remove this file?')">
+        <button class="btn btn-tiny btn-danger-outline" title="Delete">✕</button>
+      </form>
+    </span>
+  </div>
+</li>

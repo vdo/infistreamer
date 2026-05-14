@@ -1,0 +1,18 @@
+<div id="status" class="status-box status-{{ stream.status }}"
+     hx-get="/streams/{{ stream.id }}/status" hx-trigger="every 5s" hx-swap="outerHTML">
+  <div class="status-line">
+    <span class="status-pill status-{{ stream.status }}">{{ stream.status_emoji() }} {{ stream.status }}</span>
+    {% if let Some(r) = runtime %}
+      <span class="metric">⏱ {{ r.uptime }}</span>
+      <span class="metric">📤 {{ r.data_sent }}</span>
+      <span class="metric">📶 {{ r.bitrate }}</span>
+      <span class="metric">🎞 {{ r.fps }} fps · {{ r.frames }} frames</span>
+      <span class="metric">⚡ {{ r.speed }}</span>
+      {% if r.dropped > 0 %}<span class="metric warn">⚠️ {{ r.dropped }} dropped</span>{% endif %}
+      {% if r.restarts > 0 %}<span class="metric warn">🔁 {{ r.restarts }} restarts</span>{% endif %}
+    {% endif %}
+  </div>
+  {% if let Some(err) = stream.last_error %}
+    <p class="alert alert-error small">{{ err }}</p>
+  {% endif %}
+</div>

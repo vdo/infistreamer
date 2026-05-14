@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Monitoring · infistreamer{% endblock %}
+{% block nav %}
+  <span class="nav-user">👤 {{ username }}</span>
+  <a href="/">🎬 Streams</a>
+  <form method="post" action="/logout" class="inline"><button class="btn btn-link">Log out</button></form>
+{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1>📊 Monitoring</h1>
+  <a href="/metrics" class="btn btn-link" target="_blank">Prometheus /metrics ↗</a>
+</div>
+
+<section class="card">
+  <div id="montable" hx-get="/monitoring/table" hx-trigger="every 5s" hx-swap="outerHTML">
+    {% include "mon_table.html" %}
+  </div>
+</section>
+
+<section class="card">
+  <h2>📈 Bitrate trends</h2>
+  {% include "trends.html" %}
+</section>
+
+<p class="muted small">
+  Live numbers are parsed from ffmpeg progress output and sampled once a minute into the
+  trend graphs (kept for ~8 days). Prometheus can scrape <code>/metrics</code> for
+  <code>infistreamer_stream_*</code> series (bytes sent, uptime, bitrate, fps, dropped
+  frames, restarts).
+</p>
+
+{% endblock %}

@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}{{ stream.name }} · infistreamer{% endblock %}
+{% block nav %}
+  <span class="nav-user">👤 {{ username }}</span>
+  <a href="/">🎬 Streams</a>
+  <a href="/monitoring">📊 Monitoring</a>
+  <form method="post" action="/logout" class="inline"><button class="btn btn-link">Log out</button></form>
+{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1>{{ stream.name }}</h1>
+  <a href="/" class="btn btn-link">← All streams</a>
+</div>
+
+{% if let Some(m) = flash %}<p class="alert alert-ok">{{ m }}</p>{% endif %}
+{% if let Some(e) = flash_error %}<p class="alert alert-error">{{ e }}</p>{% endif %}
+
+<section class="card">
+  {% include "status.html" %}
+  <div class="controls">
+    {% if stream.is_live() %}
+      <form method="post" action="/streams/{{ stream.id }}/stop" class="inline">
+        <button class="btn btn-danger">⏹ Stop stream</button>
+      </form>
+    {% else %}
+      <form method="post" action="/streams/{{ stream.id }}/start" class="inline">
+        <button class="btn btn-primary">▶ Go live</button>
+      </form>
+    {% endif %}
+    <form method="post" action="/streams/{{ stream.id }}/delete" class="inline"
+          onsubmit="return confirm('Delete this stream and all its media?')">
+      <button class="btn btn-danger-outline">🗑 Delete</button>
+    </form>
+  </div>
+</section>
+
+<section class="card">
+  <h2>⚙️ Settings</h2>
+  <form method="post" action="/streams/{{ stream.id }}">
+    <label>Name <input name="name" value="{{ stream.name }}" required></label>
+
+    <label>Quality
+      <select name="quality">
+        <option value="hd" {% if stream.is_hd() %}selected{% endif %}>1080p HD</option>
+        <option value="sd" {% if !stream.is_hd() %}selected{% endif %}>720p</option>
+      </select>
+    </label>
+
+    <fieldset>
+      <legend>YouTube ingest</legend>
+      <label>RTMP URL <input name="ingest_url" value="{{ stream.ingest_url }}"></label>
+      <label>Stream key <input name="stream_key" value="{{ stream.stream_key }}"
+             placeholder="paste from YouTube Studio"></label>
+      {% if youtube.is_some() %}
+      <button type="submit" form="ytbroadcast" class="btn btn-secondary">
+        ✨ Auto-create YouTube broadcast
+      </button>
+      {% else if oauth_enabled %}
+      <p class="muted small">Connect a YouTube account on the dashboard to auto-create
+        broadcasts and fill in the key automatically.</p>
+      {% endif %}
+    </fieldset>
+
+    <fieldset>
+      <legend>Playback</legend>
+      <label class="check"><input type="checkbox" name="infinite" {% if stream.infinite %}checked{% endif %}>
+        ♾️ Infinite stream (loop the playlists forever)</label>
+      <label class="check"><input type="checkbox" name="shuffle_video" {% if stream.shuffle_video %}checked{% endif %}>
+        🔀 Shuffle visual playlist</label>
+      <label class="check"><input type="checkbox" name="shuffle_audio" {% if stream.shuffle_audio %}checked{% endif %}>
+        🔀 Shuffle audio playlist</label>
+      <p class="muted small">Shuffle uses a “bag”: every item plays once before any
+        repeats, the order is re-rolled each cycle, and nothing plays twice in a row.</p>
+      <label class="check"><input type="checkbox" name="fade" {% if stream.fade %}checked{% endif %}>
+        🎚 Fade in on start</label>
+      <label>Image duration (seconds)
+        <input name="image_duration" type="number" min="1" max="3600" value="{{ stream.image_duration }}"></label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Overlay</legend>
+      <label class="check"><input type="checkbox" name="overlay_enabled" {% if stream.overlay_enabled %}checked{% endif %}>
+        🏷 Show text overlay</label>
+      <label>Overlay text <span class="muted small">(optional — leave blank for no overlay)</span>
+        <input name="overlay_text"
+               value="{% if let Some(t) = stream.overlay_text %}{{ t }}{% endif %}"
+               placeholder="e.g. 24/7 Lofi Radio"></label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Schedule (UTC, optional)</legend>
+      <label>Start <input name="scheduled_start" type="datetime-local" value="{{ sched_start }}"></label>
+      <label>Stop <input name="scheduled_stop" type="datetime-local" value="{{ sched_stop }}"></label>
+    </fieldset>
+
+    <button type="submit" class="btn btn-primary">💾 Save settings</button>
+  </form>
+  {% if youtube.is_some() %}
+  <form id="ytbroadcast" method="post" action="/streams/{{ stream.id }}/youtube-broadcast"></form>
+  {% endif %}
+</section>
+
+<section class="card" id="uploader">
+  <h2>⬆️ Upload media</h2>
+  <div class="upload-grid">
+    <div class="upload-col">
+      <h3>🎬 Visual <span class="muted small">(videos &amp; images)</span></h3>
+      <form class="upload-form row" method="post" enctype="multipart/form-data"
+            action="/streams/{{ stream.id }}/media?kind=visual">
+        <input type="file" name="file" accept="video/*,image/*" multiple required>
+        <button type="submit" class="btn btn-secondary">⬆ Upload visual</button>
+      </form>
+    </div>
+    <div class="upload-col">
+      <h3>🎵 Audio <span class="muted small">(mp3 &amp; other audio)</span></h3>
+      <form class="upload-form row" method="post" enctype="multipart/form-data"
+            action="/streams/{{ stream.id }}/media?kind=audio">
+        <input type="file" name="file" accept="audio/*" multiple required>
+        <button type="submit" class="btn btn-secondary">⬆ Upload audio</button>
+      </form>
+    </div>
+  </div>
+  <ul id="upload-progress" class="upload-progress"></ul>
+  <p class="muted small">Select multiple files at once. Each file uploads and is processed
+    (normalized for streaming) separately; the page refreshes when the batch finishes.</p>
+  {% if stream.is_live() %}
+  <p class="alert alert-ok small">This stream is live — new media joins the rotation on the
+    next playlist round, without ever interrupting the broadcast.</p>
+  {% else %}
+  <p class="muted small">Media can be added or removed at any time; it's included the next
+    time the stream goes live.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>📚 Media library</h2>
+
+  <h3>🎬 Visual media <span class="muted small">(videos &amp; images)</span></h3>
+  {% if videos.is_empty() && images.is_empty() %}
+    <p class="muted">No visual media yet.</p>
+  {% else %}
+  <ul class="media-list">
+    {% for m in videos %}{% include "media_item.html" %}{% endfor %}
+    {% for m in images %}{% include "media_item.html" %}{% endfor %}
+  </ul>
+  {% endif %}
+
+  <h3>🎵 Audio tracks <span class="muted small">(mp3 &amp; other audio)</span></h3>
+  {% if audios.is_empty() %}
+    <p class="muted">No audio tracks yet.</p>
+  {% else %}
+  <ul class="media-list">
+    {% for m in audios %}{% include "media_item.html" %}{% endfor %}
+  </ul>
+  {% endif %}
+</section>
+
+<script src="/static/upload.js" defer></script>
+
+{% endblock %}
