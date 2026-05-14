@@ -46,6 +46,13 @@ async fn main() -> Result<()> {
         .init();
 
     let config = Config::from_env();
+    tracing::info!(
+        "starting infistreamer — data dir {}, ffmpeg '{}', uploads up to {} MB, YouTube OAuth {}",
+        config.data_dir.display(),
+        config.ffmpeg_bin,
+        config.max_upload_mb,
+        if config.oauth_enabled() { "enabled" } else { "disabled (stream-key mode)" },
+    );
 
     // Ensure the data directory layout exists.
     tokio::fs::create_dir_all(&config.data_dir).await?;
@@ -55,6 +62,7 @@ async fn main() -> Result<()> {
 
     let db = db::init(&config.db_path()).await?;
     db::ensure_admin(&db, &config.admin_username, &config.admin_password).await?;
+    tracing::info!("database ready at {}", config.db_path().display());
 
     // Cookie signing key: from SECRET_KEY (>= 64 bytes) or ephemeral.
     let key = match &config.secret_key {
@@ -74,6 +82,7 @@ async fn main() -> Result<()> {
     manager.reset_stale().await?;
     scheduler::spawn(db.clone(), manager.clone());
     history::spawn(db.clone(), manager.clone());
+    tracing::info!("scheduler and metrics sampler started");
 
     let state = AppState {
         db,

@@ -168,6 +168,7 @@ impl StreamManager {
         if audios.is_empty() {
             return Err(anyhow!("add at least one audio track first"));
         }
+        let (visual_count, audio_count) = (videos.len(), audios.len());
 
         let workdir = self.config.data_dir.join("work").join(id.to_string());
         tokio::fs::create_dir_all(&workdir).await?;
@@ -227,7 +228,12 @@ impl StreamManager {
             .bind(id)
             .execute(&self.db)
             .await?;
-        tracing::info!("stream {id} started");
+        tracing::info!(
+            "stream {id} '{}' started — {} quality, {visual_count} visual / {audio_count} audio, {}",
+            stream.name,
+            stream.quality_label(),
+            if stream.infinite { "infinite loop" } else { "single pass" },
+        );
         Ok(())
     }
 
@@ -236,6 +242,7 @@ impl StreamManager {
         let entry = self.running.lock().await.remove(&id);
         if let Some(rs) = entry {
             rs.stop.notify_one();
+            tracing::info!("stream {id} stopping");
         }
         sqlx::query("UPDATE streams SET status = 'stopped' WHERE id = ?")
             .bind(id)
@@ -256,6 +263,7 @@ impl StreamManager {
             }
         };
         let (videos, audios) = load_media_lists(&self.db, id).await?;
+        let (visual_count, audio_count) = (videos.len(), audios.len());
         // Don't blank a list if all media of that kind was removed — keep the feeder
         // playing the previous round rather than stalling the stream.
         if !videos.is_empty() {
@@ -264,6 +272,10 @@ impl StreamManager {
         if !audios.is_empty() {
             *audio_list.lock().unwrap() = audios;
         }
+        tracing::info!(
+            "stream {id}: media list updated ({visual_count} visual / {audio_count} audio) \
+             — feeders apply it on the next round"
+        );
         Ok(())
     }
 }
@@ -367,6 +379,7 @@ async fn run_monitor(ctx: MonitorCtx) {
         if let Some(stdout) = child.stdout.take() {
             tokio::spawn(read_progress(stdout, metrics.clone()));
         }
+        tracing::info!("stream {id}: broadcast ffmpeg running, feeders starting");
 
         // Spawn the two feeder threads for this run. They are detached: a fresh
         // `feeder_stop` is used per run, and they also die on EPIPE once the broadcast

@@ -206,6 +206,7 @@ async fn login_submit(
 
     match user {
         Some(u) if auth::verify_password(&form.password, &u.password_hash) => {
+            tracing::info!("user '{}' signed in", u.username);
             let jar = jar.add(auth::session_cookie(u.id));
             Ok((jar, Redirect::to("/")).into_response())
         }
@@ -311,6 +312,7 @@ async fn create_stream(
     .fetch_one(&st.db)
     .await?;
 
+    tracing::info!("stream {id} created: '{name}'");
     Ok(Redirect::to(&format!("/streams/{id}")))
 }
 
@@ -437,6 +439,7 @@ async fn delete_stream(
         .bind(id)
         .execute(&st.db)
         .await?;
+    tracing::info!("stream {id} deleted");
     Ok(Redirect::to("/"))
 }
 
@@ -607,8 +610,14 @@ async fn upload_media(
     if saved == 0 && errors.is_empty() {
         return Err(AppError::BadRequest("no file received".into()));
     }
+    if saved > 0 || !errors.is_empty() {
+        tracing::info!(
+            "stream {id}: media upload — {saved} added, {} failed",
+            errors.len()
+        );
+    }
 
-    // Apply the new media to the stream if it is currently live (debounced restart).
+    // Apply the new media to the stream if it is currently live.
     let live = if saved > 0 {
         if let Err(e) = st.manager.refresh(id).await {
             tracing::warn!("stream {id}: refresh after upload failed: {e}");
@@ -995,10 +1004,13 @@ async fn youtube_callback(
         .code
         .ok_or_else(|| AppError::BadRequest("missing authorization code".into()))?;
     match youtube::connect(&st.config, &st.db, &code).await {
-        Ok(title) => Ok(Redirect::to(&format!(
-            "/?yt_ok={}",
-            urlencode(&format!("Connected: {title}"))
-        ))),
+        Ok(title) => {
+            tracing::info!("YouTube account connected: {title}");
+            Ok(Redirect::to(&format!(
+                "/?yt_ok={}",
+                urlencode(&format!("Connected: {title}"))
+            )))
+        }
         Err(e) => Ok(Redirect::to(&format!("/?yt_error={}", urlencode(&e.to_string())))),
     }
 }
